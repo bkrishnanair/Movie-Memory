@@ -5,10 +5,10 @@ Built with TypeScript, Next.js App Router, React, Tailwind CSS, Postgres, and Pr
 
 ## Current progress
 
-The second milestone adds Google OAuth, database-backed sessions, movie onboarding,
-and a protected dashboard. Movie titles are validated and saved on the server using
-the signed-in user's identity. Sign-in is enabled when the required credentials are configured.
-OpenAI fact generation and Variant A caching are the next milestones.
+Google OAuth, database-backed sessions, onboarding, and the dashboard are implemented.
+The dashboard now requests a fact from a server-only OpenAI integration and saves it to
+Postgres. The request is limited to 10 seconds with automatic retries disabled. The next
+milestone adds Variant A caching and concurrency protection.
 
 The app-side session flow has been tested against Postgres. Google's real consent and
 callback flow still needs verification with a configured OAuth application.
@@ -82,8 +82,8 @@ Use a separate development database for migrations. Generated Prisma files are i
 | `NEXTAUTH_SECRET` | Session secret | For authentication |
 | `GOOGLE_CLIENT_ID` | Google OAuth application ID | For authentication |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth application secret | For authentication |
-| `OPENAI_API_KEY` | Server-side fact generation | Fact milestone |
-| `OPENAI_MODEL` | Model available to the configured account | Fact milestone |
+| `OPENAI_API_KEY` | Server-side fact generation | For movie facts |
+| `OPENAI_MODEL` | Model available to the configured account | For movie facts |
 
 Never commit `.env` or put secrets in variables prefixed with `NEXT_PUBLIC_`.
 The example contains placeholders only.
@@ -114,8 +114,8 @@ npm run build
 `npm run lint` is available for lint checks. `npm run db:validate` validates the schema
 when `DATABASE_URL` is set; it does not connect to the database.
 
-The 31 unit tests cover movie validation, session-based ownership, server-side rejection,
-database errors, onboarding routing, and profile fallbacks. The title length
+The 45 unit tests cover movie validation, session-based ownership, server-side rejection,
+database errors, onboarding routing, profile fallbacks, provider output, and fact persistence. The title length
 limit uses JavaScript string length (UTF-16 code units), consistently with HTML input
 limits. The onboarding action calls the validator before writing a movie.
 
@@ -183,9 +183,9 @@ checks it again before writing, even if the user previously opened the form. Nex
 OAuth state/PKCE and CSRF protection for sign-in/sign-out; Next.js handles the server-action
 POST and origin checks. Account linking remains at the library's secure default.
 
-Fact requests will read the user's movie from Postgres, check the saved fact's age, and
-coordinate generation before calling OpenAI. Provider failure and stale fallback are part
-of the upcoming fact/caching milestones.
+`POST /api/fact` reads the user's movie from Postgres, calls OpenAI, saves the result, and
+returns it. The request never accepts an owner or movie from the browser. Responses are
+private and not cached by the browser. Cache reuse and stale fallback are the next milestone.
 
 ### Tradeoffs
 

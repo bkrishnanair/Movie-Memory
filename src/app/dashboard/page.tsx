@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { requireUser } from "@/lib/auth";
+import { FactPanel } from "@/components/fact-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export default async function Dashboard() {
           <p className="mt-4 break-words font-serif text-4xl leading-tight sm:text-5xl">{user.favoriteMovie}</p>
           <p className="mt-6 text-sm text-stone-600">Saved for your next visit.</p>
         </section>
+        <FactPanel />
       </main>
     </div>
   );

@@ -51,7 +51,17 @@ Implementation and app-side checks are complete. Real Google login remains a fin
 After this milestone, three planned commits remain: fact generation, caching/concurrency,
 and final verification/documentation.
 
-## Acceptance checks
+## Third commit
+
+Message: `Generate and save movie facts`.
+
+- Server-only OpenAI request with a 10-second timeout, no automatic retries, and a short output limit.
+- Authenticated fact endpoint reads the movie from the database and saves the result.
+- Dashboard fact display with loading, error, refresh, and retry behavior.
+- 45 tests pass, along with TypeScript and production build checks. Provider tests use a mock;
+  a live API request still needs a configured key.
+
+## Acceptance checks for the final milestones
 
 ### Authentication and onboarding
 
