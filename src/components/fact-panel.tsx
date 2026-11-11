@@ -39,6 +39,7 @@ export function FactPanel() {
       <div aria-live="polite">
         {loading && <p role="status" className="mt-4 text-stone-600">Finding a fact about your movie...</p>}
         {result && <p className="mt-4 text-lg leading-relaxed">{result.fact.text}</p>}
+        {result?.source === "stale" && <p role="status" className="mt-3 text-sm text-stone-600">Showing your last saved fact. A new one is unavailable right now.</p>}
         {error && <p role="alert" className="mt-4 text-sm text-red-800">{error}</p>}
       </div>
       <button
@@ -49,6 +50,7 @@ export function FactPanel() {
       >
         {error ? "Try again" : "Refresh fact"}
       </button>
+      <p className="mt-3 text-xs text-stone-600">Facts refresh at most once a minute.</p>
     </section>
   );
 }

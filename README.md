@@ -7,8 +7,8 @@ Built with TypeScript, Next.js App Router, React, Tailwind CSS, Postgres, and Pr
 
 Google OAuth, database-backed sessions, onboarding, and the dashboard are implemented.
 The dashboard now requests a fact from a server-only OpenAI integration and saves it to
-Postgres. The request is limited to 10 seconds with automatic retries disabled. The next
-milestone adds Variant A caching and concurrency protection.
+Postgres. The request is limited to 10 seconds with automatic retries disabled. Variant A adds a 60-second database cache, shared in-progress requests within one server
+process, and stale fallback on generation failure.
 
 The app-side session flow has been tested against Postgres. Google's real consent and
 callback flow still needs verification with a configured OAuth application.
@@ -21,7 +21,7 @@ This keeps the interface small and puts the work into ownership checks, concurre
 requests, and failure handling. It also builds on my experience with backend services
 and preventing concurrent RSVP updates in Huddle.
 
-The planned fact-generation behavior is:
+Fact-generation behavior:
 
 - Reuse the newest fact for the current user and movie while its age is under 60 seconds.
 - At 60 seconds or later, generate and store a new fact.
@@ -114,7 +114,7 @@ npm run build
 `npm run lint` is available for lint checks. `npm run db:validate` validates the schema
 when `DATABASE_URL` is set; it does not connect to the database.
 
-The 45 unit tests cover movie validation, session-based ownership, server-side rejection,
+The 58 unit tests cover movie validation, session-based ownership, server-side rejection,
 database errors, onboarding routing, profile fallbacks, provider output, and fact persistence. The title length
 limit uses JavaScript string length (UTF-16 code units), consistently with HTML input
 limits. The onboarding action calls the validator before writing a movie.
@@ -185,14 +185,14 @@ POST and origin checks. Account linking remains at the library's secure default.
 
 `POST /api/fact` reads the user's movie from Postgres, calls OpenAI, saves the result, and
 returns it. The request never accepts an owner or movie from the browser. Responses are
-private and not cached by the browser. Cache reuse and stale fallback are the next milestone.
+private and not cached by the browser. The server reuses a saved fact for 60 seconds and returns stale data on generation failure.
 
 ### Tradeoffs
 
 - A title is free text. A movie catalog and title lookup are outside the exercise.
 - Each fact stores its own movie title so history remains meaningful if the user changes
   their favorite in a future version.
-- The planned in-progress map is local to one server process. It handles overlapping
+- The in-progress map is local to one server process. It handles overlapping
   requests there, but cannot coordinate multiple instances or survive a restart. This
   limitation is acceptable for the selected exercise approach and must be revisited before
   scaling out.

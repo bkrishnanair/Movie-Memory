@@ -61,7 +61,18 @@ Message: `Generate and save movie facts`.
 - 45 tests pass, along with TypeScript and production build checks. Provider tests use a mock;
   a live API request still needs a configured key.
 
-## Acceptance checks for the final milestones
+## Fourth commit
+
+Message: `Cache facts and guard concurrent requests`.
+
+- Guard the cache lookup and generation with one promise per user and movie.
+- Reuse facts younger than 60 seconds; return stale data on failure without changing its age.
+- Release the guard on success or failure so later requests can proceed.
+- 58 unit tests, TypeScript, and production build pass.
+- Live HTTP checks against a local provider fixture pass for concurrency, persistence, cache
+  expiry, user isolation, failure, fallback, and retry.
+
+## Acceptance checks for final verification
 
 ### Authentication and onboarding
 
