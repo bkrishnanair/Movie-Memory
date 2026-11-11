@@ -48,8 +48,7 @@ Implementation and app-side checks are complete. Real Google login remains a fin
   through local HTTP requests using `scripts/check-auth.mjs`.
 - [ ] Verify the actual Google consent and callback flow after OAuth credentials are configured.
 
-After this milestone, three planned commits remain: fact generation, caching/concurrency,
-and final verification/documentation.
+The remaining milestones are recorded below.
 
 ## Third commit
 
@@ -59,7 +58,7 @@ Message: `Generate and save movie facts`.
 - Authenticated fact endpoint reads the movie from the database and saves the result.
 - Dashboard fact display with loading, error, refresh, and retry behavior.
 - 45 tests pass, along with TypeScript and production build checks. Provider tests use a mock;
-  a live API request still needs a configured key.
+  the live API check is recorded in the final verification section.
 
 ## Fourth commit
 
@@ -119,10 +118,18 @@ After each commit, explain one behavior without reading the implementation:
 4. Why does a cache not prevent two requests from starting the same work?
 5. What would fail if two server instances each had their own in-progress map?
 
-## Before the second commit
+## Final verification
 
-Configure a development Postgres connection, a Google OAuth web application, and a session
-secret in the local `.env` file. The callback URL is
-`http://localhost:3000/api/auth/callback/google`. Add the Google account as a test user
-if the OAuth application is in testing mode. Add an OpenAI API key and model before the
-fact-generation milestone. Do not put credentials in issues, commits, or screenshots.
+Message: `Finish verification and submission documentation`.
+
+- 58 unit tests, lint, TypeScript, and production build pass.
+- Both migrations and both HTTP smoke scripts passed with isolated Postgres databases.
+- Resolved the fact-loading effect lint issue and the PostCSS export warning.
+- README contains setup, architecture, limits, tradeoffs, and tool-use disclosure.
+- Added an editable submission summary and a one-page PDF.
+- Google sign-in reaches the account chooser; completing consent/callback awaits account selection.
+- The real provider returned `credit_balance_exhausted`; the application returned a friendly
+  error. Successful live generation awaits API credit.
+
+All five planned implementation/documentation milestones are represented in local Git.
+Only the first milestone has been pushed. Do not describe pending live checks as passed.

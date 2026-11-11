@@ -1,206 +1,208 @@
 # Movie Memory
 
-A small app for saving a favorite movie and discovering a fun fact about it.
-Built with TypeScript, Next.js App Router, React, Tailwind CSS, Postgres, and Prisma.
+Save a favorite movie, see your Google profile, and discover a short fact about the movie.
+Built with TypeScript, Next.js App Router, React, Tailwind CSS, Postgres, Prisma,
+Google OAuth, and the OpenAI Responses API.
 
-## Current progress
+**Variant A: backend caching and correctness.** I chose this to focus on data ownership,
+concurrent requests, and failure handling. It fits my backend experience while keeping
+the interface small. Variant B's movie editing and client cache are outside this scope.
 
-Google OAuth, database-backed sessions, onboarding, and the dashboard are implemented.
-The dashboard now requests a fact from a server-only OpenAI integration and saves it to
-Postgres. The request is limited to 10 seconds with automatic retries disabled. Variant A adds a 60-second database cache, shared in-progress requests within one server
-process, and stale fallback on generation failure.
-
-The app-side session flow has been tested against Postgres. Google's real consent and
-callback flow still needs verification with a configured OAuth application.
-
-## Chosen variant
-
-**Variant A: backend caching and correctness.**
-
-This keeps the interface small and puts the work into ownership checks, concurrent
-requests, and failure handling. It also builds on my experience with backend services
-and preventing concurrent RSVP updates in Huddle.
-
-Fact-generation behavior:
-
-- Reuse the newest fact for the current user and movie while its age is under 60 seconds.
-- At 60 seconds or later, generate and store a new fact.
-- Share one in-progress generation between overlapping requests for the same user and movie.
-- If generation fails, return the last saved fact. If there is none, show a friendly error.
-
-See [the build plan](docs/build-plan.md) for the commit sequence and acceptance checks.
+[Submission summary](docs/submission.md) · [Build milestones](docs/build-plan.md)
 
 ## Run locally
 
-Use Node.js 24 LTS, npm, and Postgres 16 or later. With nvm installed, run `nvm use`.
+Use Node.js 24 LTS (`nvm use`) and Postgres 16 or later.
 
 ```sh
 git clone https://github.com/bkrishnanair/Movie-Memory.git
 cd Movie-Memory
 npm ci
 cp .env.example .env
-npm run dev
 ```
 
-Open http://localhost:3000. The landing page, unit tests, and production build work
-without service credentials. Database commands require a running Postgres instance
-and a valid `DATABASE_URL` in `.env`.
-
-### Database setup
-
-Create an empty database using your local Postgres administrator account or hosted
-Postgres provider. For example, on a local installation with the `postgres` role:
+Create an empty Postgres database with your local administrator or hosted provider.
+For a local installation with the `postgres` role, for example:
 
 ```sh
 createdb -h localhost -U postgres movie_memory
 ```
 
-Update `DATABASE_URL` to match that database and its credentials, then apply the
-checked-in migration:
+Fill in `.env`, then run:
 
 ```sh
 npm run db:deploy
-npm run db:generate
+npm run dev
 ```
 
-When intentionally changing the schema during development:
+Open http://localhost:3000. `npm ci` generates the Prisma client. For production mode,
+run `npm run build` followed by `npm start`. The landing page and build work without
+credentials; signing in and generating facts require the services below.
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Postgres connection string |
+| `NEXTAUTH_URL` | App URL; use `http://localhost:3000` locally |
+| `NEXTAUTH_SECRET` | Generate with `openssl rand -base64 32` |
+| `GOOGLE_CLIENT_ID` | Google web application OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `OPENAI_API_KEY` | API key with available credit and model access |
+| `OPENAI_MODEL` | Optional; defaults to `gpt-4.1-mini` |
+
+Keep `.env` out of Git. Never prefix these secrets with `NEXT_PUBLIC_`.
+
+### Google configuration
+
+Configure a Google OAuth consent screen and a web application OAuth client. While in
+testing mode, add the Google accounts that will test the app. Register:
+
+- JavaScript origin: `http://localhost:3000`
+- Redirect URI: `http://localhost:3000/api/auth/callback/google`
+
+Use `localhost` consistently. Restart the app after changing credentials. A deployed app
+needs its own HTTPS callback and matching `NEXTAUTH_URL`.
+
+### Migrations
+
+`npm run db:deploy` applies the checked-in migrations without changing their history.
+For an intentional schema change in a development database:
 
 ```sh
 npm run db:migrate -- --name describe_change
 npm run db:generate
 ```
 
-Use a separate development database for migrations. Generated Prisma files are ignored;
-`npm ci`, `npm run typecheck`, and `npm run build` regenerate the client from the schema.
+## Architecture
 
-### Environment variables
+### One application and one database
 
-| Variable | Purpose | Required now? |
-| --- | --- | --- |
-| `DATABASE_URL` | Postgres connection string | For authentication and database commands |
-| `NEXTAUTH_URL` | Application URL, initially `http://localhost:3000` | For authentication |
-| `NEXTAUTH_SECRET` | Session secret | For authentication |
-| `GOOGLE_CLIENT_ID` | Google OAuth application ID | For authentication |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth application secret | For authentication |
-| `OPENAI_API_KEY` | Server-side fact generation | For movie facts |
-| `OPENAI_MODEL` | Model available to the configured account | For movie facts |
+Next.js serves the pages, onboarding server action, and fact endpoint. Prisma connects
+to Postgres through a lazily created, shared connection pool. There is no separate
+backend service or cache server. Client components handle buttons, form feedback,
+profile-photo fallback, and fact loading. Authentication, database access, and provider
+calls remain on the server.
 
-Never commit `.env` or put secrets in variables prefixed with `NEXT_PUBLIC_`.
-The example contains placeholders only.
+| Record | Responsibility |
+| --- | --- |
+| `User` | Google profile and nullable `favoriteMovie`; null means onboarding is incomplete |
+| `Account` | Google provider account linked to a user |
+| `Session` | Database-backed session with an expiration time |
+| `Fact` | Owner, movie title, generated text, and creation time |
 
-### Configure Google sign-in
+A composite index on `(userId, movie, createdAt DESC)` supports the newest-fact lookup.
+Facts keep their movie title independently of the user record. Foreign keys prevent
+orphaned records and cascade on user deletion. Timestamps use `timestamptz`, with UTC
+connections, so database timezone settings do not shift session expiry or cache ages.
 
-1. In Google Cloud, configure the OAuth consent screen and create a web application
-   OAuth client. Add your Google account to the test users while the app is in testing mode.
-2. Set `http://localhost:3000` as the authorized JavaScript origin and
-   `http://localhost:3000/api/auth/callback/google` as the authorized redirect URI.
-3. Copy the client ID and secret into the local `.env`. Generate a session secret with
-   `openssl rand -base64 32` and put the result in `NEXTAUTH_SECRET`.
-4. Fill in `DATABASE_URL`, apply migrations with `npm run db:deploy`, and restart the app.
-5. Open `http://localhost:3000`, sign in, save a movie, log out, and sign in again.
-   The second visit should go straight to the dashboard.
+### Authentication and ownership
 
-Keep the hostname consistent: use `localhost`, not `127.0.0.1`, for this configuration.
-For a deployed app, register its HTTPS callback URL and update `NEXTAUTH_URL` accordingly.
+`src/lib/auth.ts` configures Google OAuth and resolves the current user from the verified
+session. The landing page sends users with no saved movie to onboarding and returning
+users to the dashboard. Both private pages check authentication on every request.
 
-## Checks
+The onboarding action checks the session again, trims the title, and requires 1-120
+characters using JavaScript's UTF-16 length, consistent with the HTML input limit.
+It writes only to the session user's record. A conditional update requires the current
+movie to be null, preventing two onboarding tabs from overwriting a completed choice.
+Missing names or photos have fallbacks; logout revokes the database session.
+
+NextAuth handles OAuth state/PKCE and sign-in/sign-out CSRF protection. Next.js protects
+server-action POSTs. `POST /api/fact` rejects a supplied mismatched Origin, authenticates
+the request, and reads the saved movie. It never trusts a submitted user ID or movie.
+Private responses use `Cache-Control: private, no-store`.
+
+### Cache, concurrency, and failure handling
+
+`src/lib/facts.ts` owns the complete lookup/generation/save operation:
+
+1. Register a shared promise for the current user and movie before asynchronous work begins.
+   Overlapping requests in the same Node process reuse that promise.
+2. Query the newest stored fact inside that guarded work. If its age is nonnegative and
+   less than 60,000 milliseconds, return it. Exactly 60 seconds is expired.
+3. Otherwise, request a fact, save it, and return the saved record. Different users have
+   separate records and separate in-progress work, even for the same movie.
+4. On provider or save failure, return the last saved fact with a stale marker and its
+   original timestamp. With no saved fact, return a friendly error. Always release the
+   in-progress entry so future requests can retry.
+
+The database is the durable cache. The process-local map holds only unfinished work.
+It does **not** coordinate multiple instances or survive a restart; this implementation
+assumes one Node process. A distributed deployment needs database-backed coordination.
+
+`src/lib/openai.ts` uses a 10-second timeout, no automatic retries, a short output limit,
+and `store: false`. Only the movie title is sent as input. The prompt treats it as data,
+asks for concise text, and allows an unknown-movie response. Empty, incomplete, unknown,
+or oversized results are rejected. Provider details and credentials are not returned
+to the browser. React renders fact text normally rather than as HTML.
+
+The dashboard stays usable while facts load. Refresh within the cache window reuses the
+fact; loading, stale-data, and retry states are visible. Generated facts are not independently
+fact-checked, and a free-text title may be ambiguous.
+
+### Tradeoffs and two more hours
+
+A single Next.js app and process-local coordination keep this assessment small. There is
+no movie catalog, editing flow, Redis, or separate backend. The cache limits successful
+generation frequency but is not a general rate limiter; repeated failures can retry.
+
+With two more hours, I would prioritize a repeatable browser regression for onboarding,
+return visits, and logout, then clearer handling of ambiguous movie titles. Before using
+multiple app instances, I would replace the in-progress map with a database-backed lease
+and add a test proving coordination between two processes.
+
+## Verification
 
 ```sh
 npm test
+npm run lint
 npm run typecheck
 npm run build
 ```
 
-`npm run lint` is available for lint checks. `npm run db:validate` validates the schema
-when `DATABASE_URL` is set; it does not connect to the database.
+All pass: **58 tests across 7 suites**. Coverage includes validation, authorization,
+onboarding routing, persistence, provider output validation, exact cache boundaries,
+concurrent requests, user isolation, stale fallback, and retry after failure.
+Both migrations also applied successfully to an empty local Postgres 16 database.
 
-The 58 unit tests cover movie validation, session-based ownership, server-side rejection,
-database errors, onboarding routing, profile fallbacks, provider output, and fact persistence. The title length
-limit uses JavaScript string length (UTF-16 code units), consistently with HTML input
-limits. The onboarding action calls the validator before writing a movie.
+### Repeatable HTTP checks
 
-Verified for this milestone: unit tests, TypeScript checks, production build, and both
-migrations against isolated local Postgres 16. The HTTP smoke check exercises protected routes,
-invalid/expired sessions, incomplete/complete onboarding routing, ownership, profile fallback,
-and sign-out with CSRF validation. It creates test sessions directly in a disposable database
-and cleans up its records afterwards. This does not verify Google's consent or callback flow.
-
-To repeat the HTTP smoke check, migrate a disposable database whose name ends in `_test`
-or `_check`. In one terminal, start the app with that database as `DATABASE_URL`, a
-`NEXTAUTH_SECRET`, and Google configuration. In another terminal:
+Use a **disposable** database whose name ends in `_test` or `_check`. Set `DATABASE_URL`
+to that database and apply migrations. Start a separate app instance with that database,
+a session secret, nonempty Google placeholders, and these test-only provider settings:
 
 ```sh
-TEST_DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/movie_memory_test" \
-  node scripts/check-auth.mjs
+OPENAI_API_KEY=test-only OPENAI_BASE_URL=http://127.0.0.1:4011/v1 npm start
 ```
 
-The server and script must use the same test database. The script only accepts a local HTTP
-server (`TEST_BASE_URL` defaults to `http://localhost:3000`). For this smoke check alone,
-nonempty placeholder Google credentials work because it never contacts Google. Real
-Google credentials are required for a person to sign in. Never use test placeholders in
-the deployed app.
+Then, in another terminal with `TEST_DATABASE_URL` set to the same disposable database:
 
-The runtime dependency audit is clean. The full audit currently reports a moderate
-`minimatch` issue through the development lint dependencies; the available automatic fix
-did not resolve it. No major-version dependency override has been forced.
+```sh
+node scripts/check-auth.mjs
+node scripts/check-facts.mjs
+```
 
-## Architecture
+The scripts create and remove their own records. They accept only a local HTTP server
+(`TEST_BASE_URL` defaults to `http://localhost:3000`). The fact script owns a delayed
+provider fixture on port 4011 and makes no paid calls. Do not use these placeholder
+credentials or provider settings for normal use.
 
-One Next.js application owns the pages and server operations. Prisma connects directly
-to Postgres; there is no separate backend deployment. `src/lib/db.ts` is server-only
-and creates a shared connection pool lazily, so loading the landing page does not require
-a database connection.
+Both HTTP checks passed: real Postgres sessions, route protection, expiry, ownership,
+CSRF-validated logout, simultaneous generation, persistence, cache expiry, user isolation,
+stale fallback, friendly errors, and recovery. They seed sessions directly and therefore
+do not verify Google's consent/callback flow.
 
-### Data model
+**Live service status:** the configured Google flow reaches the account chooser; consent,
+callback, and first login remain pending account selection. The real provider returned
+`429 / credit_balance_exhausted`; the app returned its friendly 503 response. Successful
+live generation needs API credit. These are verification gaps, not claimed successes.
 
-- `User` stores profile details and a nullable `favoriteMovie`. A missing movie means
-  onboarding is incomplete; no extra onboarding flag is needed.
-- `Account` and `Session` support Google OAuth with database-backed sessions.
-  Provider account IDs are unique within each provider. Names and photos are nullable.
-- `Fact` stores the owning user, the movie used to generate the text, and a creation time.
-  The composite index on `(userId, movie, createdAt DESC)` supports finding the latest
-  fact without scanning every user's history.
-- Foreign keys prevent orphaned records. Deleting a user also deletes their accounts,
-  sessions, and facts. Foreign keys do not replace authorization: server queries must
-  still restrict access to the user from the verified session.
-- Timestamps use Postgres `timestamptz`, and the Prisma connection uses UTC. This avoids
-  treating valid sessions as expired when a local database uses a different timezone.
+The production dependency audit is clean. The full audit reports a moderate `minimatch`
+issue through development lint dependencies; the automatic fix did not resolve it. No
+incompatible major-version override was forced.
 
-### Implemented sign-in and onboarding flow
+## Tool use
 
-1. The server checks the session. Signed-out visitors see the landing page.
-2. Signed-in users without a saved movie go to onboarding, including users who abandoned
-   an earlier onboarding attempt. Users with a saved movie go to the dashboard.
-3. The server trims and validates the submitted title, then saves it to the session user.
-   It does not accept a user ID from the form.
-4. The onboarding write is conditional on `favoriteMovie` being null, so concurrent tabs
-   cannot overwrite a completed choice. The server invalidates the page data and redirects.
-5. The dashboard displays the user's profile and saved movie. Missing names/photos have
-   fallbacks; a broken photo also falls back. Logout revokes the database session.
-
-Private pages render dynamically and check their session on each request. The server action
-checks it again before writing, even if the user previously opened the form. NextAuth handles
-OAuth state/PKCE and CSRF protection for sign-in/sign-out; Next.js handles the server-action
-POST and origin checks. Account linking remains at the library's secure default.
-
-`POST /api/fact` reads the user's movie from Postgres, calls OpenAI, saves the result, and
-returns it. The request never accepts an owner or movie from the browser. Responses are
-private and not cached by the browser. The server reuses a saved fact for 60 seconds and returns stale data on generation failure.
-
-### Tradeoffs
-
-- A title is free text. A movie catalog and title lookup are outside the exercise.
-- Each fact stores its own movie title so history remains meaningful if the user changes
-  their favorite in a future version.
-- The in-progress map is local to one server process. It handles overlapping
-  requests there, but cannot coordinate multiple instances or survive a restart. This
-  limitation is acceptable for the selected exercise approach and must be revisited before
-  scaling out.
-- Successful generation does not verify factual accuracy. The app will request concise facts,
-  but verified sources would require additional work.
-
-### With two more hours
-
-Replace process-local generation coordination with a database-backed lease if the app needs
-multiple instances, add a browser-level regression check for the complete sign-in flow,
-and improve how ambiguous movie titles are communicated.
+- Codex assisted with planning, implementation, test cases, debugging, and documentation.
+- Checks included unit tests, type checking, lint, a production build, and HTTP tests
+  against Postgres and a local provider fixture. Live-service gaps are recorded above.
+- The included build plan lists code paths and questions for reviewing the submitted work.

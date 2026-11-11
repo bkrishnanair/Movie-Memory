@@ -8,23 +8,23 @@ export function FactPanel() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadFact = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/fact", { method: "POST", cache: "no-store", signal });
-      const body = await response.json();
-      if (!response.ok) {
-        throw new Error(body.error || "We couldn't load a movie fact. Please try again.");
-      }
-      if (!signal?.aborted) setResult(body as FactResult);
-    } catch (cause) {
-      if (!signal?.aborted) {
-        setError(cause instanceof Error ? cause.message : "We couldn't load a movie fact. Please try again.");
-      }
-    } finally {
-      if (!signal?.aborted) setLoading(false);
-    }
+  const loadFact = useCallback((signal?: AbortSignal) => {
+    return fetch("/api/fact", { method: "POST", cache: "no-store", signal })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) {
+          throw new Error(body.error || "We couldn't load a movie fact. Please try again.");
+        }
+        if (!signal?.aborted) setResult(body as FactResult);
+      })
+      .catch((cause: unknown) => {
+        if (!signal?.aborted) {
+          setError(cause instanceof Error ? cause.message : "We couldn't load a movie fact. Please try again.");
+        }
+      })
+      .finally(() => {
+        if (!signal?.aborted) setLoading(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -44,7 +44,11 @@ export function FactPanel() {
       </div>
       <button
         type="button"
-        onClick={() => void loadFact()}
+        onClick={() => {
+          setLoading(true);
+          setError(null);
+          void loadFact();
+        }}
         disabled={loading}
         className="mt-6 rounded-lg border border-stone-400 bg-white px-4 py-2.5 text-sm font-semibold hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-900 disabled:cursor-wait disabled:opacity-60"
       >
