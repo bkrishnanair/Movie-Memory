@@ -11,11 +11,11 @@ model User {
   id            String    @id @default(cuid())
   name          String?
   email         String?   @unique
-  emailVerified DateTime?
+  emailVerified DateTime? @db.Timestamptz(3)
   image         String?
   favoriteMovie String?   @db.VarChar(120)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
   accounts      Account[]
   sessions      Session[]
   facts         Fact[]
@@ -44,19 +44,19 @@ model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
   userId       String
-  expires      DateTime
+  expires      DateTime @db.Timestamptz(3)
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model Fact {
-  id         String   @id @default(cuid())
-  userId     String
-  movie      String   @db.VarChar(120)
-  text       String   @db.Text
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  userId    String
+  movie     String   @db.VarChar(120)
+  text      String   @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, movie, createdAt(sort: Desc)])
 }

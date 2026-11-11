@@ -14,7 +14,8 @@ export function getDb(): PrismaClient {
 
   // Reuse the pool across requests and development hot reloads.
   globalForDb.db = new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
+    // Prisma's date decoder expects Postgres to return timestamps in UTC.
+    adapter: new PrismaPg({ connectionString, options: "-c timezone=UTC" }),
   });
 
   return globalForDb.db;

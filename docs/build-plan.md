@@ -30,7 +30,28 @@ movie search, ratings, recommendations, inline editing, Redis, or a separate API
 - [x] Unit tests for malformed input and length boundaries.
 - [x] README, environment example, and ignored local secrets/build artifacts.
 
-## Acceptance checks for the remaining work
+## Second commit
+
+Message: `Add Google sign-in and movie onboarding`.
+Implementation and app-side checks are complete. Real Google login remains a final manual check.
+
+- [x] Google OAuth route handlers with database sessions and a typed session user ID.
+- [x] Sign-in/logout controls, pending states, and friendly errors.
+- [x] Session checks on the landing page, onboarding, dashboard, and save action.
+- [x] Trim and validate input; derive ownership from the session.
+- [x] Persist the first movie without allowing a second tab to overwrite it.
+- [x] Show name, email, optional photo, saved movie, and logout on the dashboard.
+- [x] Add missing/broken photo and missing name fallbacks.
+- [x] Store timezone-aware timestamps and make database connections use UTC.
+- [x] Pass 31 unit tests, TypeScript checks, and production build.
+- [x] Verify real database sessions, route protection, session expiry, ownership, and logout
+  through local HTTP requests using `scripts/check-auth.mjs`.
+- [ ] Verify the actual Google consent and callback flow after OAuth credentials are configured.
+
+After this milestone, three planned commits remain: fact generation, caching/concurrency,
+and final verification/documentation.
+
+## Acceptance checks
 
 ### Authentication and onboarding
 
