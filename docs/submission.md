@@ -51,5 +51,5 @@ architecture, and repeatable checks. Start with Node 24, Postgres 16+, npm ci, a
 With two more hours: add a browser regression for onboarding/return/logout and improve
 ambiguous-title feedback. Before scaling, add database-backed generation coordination.
 
-- Codex helped with planning, implementation, tests, debugging, and documentation.
+- Codex assisted with implementation, testing, and documentation.
 - Verification results and remaining live-service gaps are stated above.

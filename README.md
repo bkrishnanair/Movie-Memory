@@ -224,7 +224,7 @@ incompatible major-version override was forced.
 
 ## Tool use
 
-- Codex assisted with planning, implementation, test cases, debugging, and documentation.
+- Codex assisted with implementation, testing, and documentation.
 - Checks included unit tests, type checking, lint, a production build, and HTTP tests
   against Postgres and a local provider fixture. Live-service gaps are recorded above.
 - The included build plan lists code paths and questions for reviewing the submitted work.
