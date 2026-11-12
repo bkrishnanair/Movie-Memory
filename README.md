@@ -46,10 +46,27 @@ credentials; signing in and generating facts require the services below.
 | `NEXTAUTH_SECRET` | Generate with `openssl rand -base64 32` |
 | `GOOGLE_CLIENT_ID` | Google web application OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `OPENAI_API_KEY` | API key with available credit and model access |
+| `FACT_PROVIDER` | `openai` (default) or `gemini` |
+| `OPENAI_API_KEY` | Required when using OpenAI |
 | `OPENAI_MODEL` | Optional; defaults to `gpt-4.1-mini` |
+| `GEMINI_API_KEY` | Required when using Gemini |
+| `GEMINI_MODEL` | Optional; defaults to `gemini-3.1-flash-lite` |
 
 Keep `.env` out of Git. Never prefix these secrets with `NEXT_PUBLIC_`.
+
+### Optional Gemini setup
+
+The assessment requires OpenAI, so it remains the default and fully implemented path.
+For local use without OpenAI credit, set `FACT_PROVIDER=gemini` and `GEMINI_API_KEY`
+in `.env`. Restart the app after changing providers. Gemini uses the existing SDK through
+[Google's compatibility endpoint](https://ai.google.dev/gemini-api/docs/openai), so no extra
+package is needed. It never automatically falls back to OpenAI.
+
+The default Gemini model has a [free tier](https://ai.google.dev/gemini-api/docs/pricing#gemini-3.1-flash-lite),
+subject to the account's quota and billing configuration. No billing setup is performed
+by this app. A Gemini-only demonstration does not verify the required OpenAI live path.
+The durable cache remains per user/movie; switching providers can reuse an existing fact
+until the cache expires.
 
 ### Google configuration
 
@@ -129,8 +146,9 @@ The database is the durable cache. The process-local map holds only unfinished w
 It does **not** coordinate multiple instances or survive a restart; this implementation
 assumes one Node process. A distributed deployment needs database-backed coordination.
 
-`src/lib/openai.ts` uses a 10-second timeout, no automatic retries, a short output limit,
-and `store: false`. Only the movie title is sent as input. The prompt treats it as data,
+`src/lib/movie-fact-provider.ts` uses a 10-second timeout, no automatic retries, and a short
+output limit. OpenAI uses the Responses API with `store: false`; optional Gemini uses
+Google's compatible Chat Completions endpoint. Both validate completed text before saving. Only the movie title is sent as input. The prompt treats it as data,
 asks for concise text, and allows an unknown-movie response. Empty, incomplete, unknown,
 or oversized results are rejected. Provider details and credentials are not returned
 to the browser. React renders fact text normally rather than as HTML.
@@ -159,9 +177,10 @@ npm run typecheck
 npm run build
 ```
 
-All pass: **58 tests across 7 suites**. Coverage includes validation, authorization,
+All pass: **68 tests across 7 suites**. Coverage includes validation, authorization,
 onboarding routing, persistence, provider output validation, exact cache boundaries,
-concurrent requests, user isolation, stale fallback, and retry after failure.
+concurrent requests, user isolation, stale fallback, retry after failure, and explicit
+provider selection without automatic fallback.
 Both migrations also applied successfully to an empty local Postgres 16 database.
 
 ### Repeatable HTTP checks
@@ -171,7 +190,8 @@ to that database and apply migrations. Start a separate app instance with that d
 a session secret, nonempty Google placeholders, and these test-only provider settings:
 
 ```sh
-OPENAI_API_KEY=test-only OPENAI_BASE_URL=http://127.0.0.1:4011/v1 npm start
+FACT_PROVIDER=openai OPENAI_API_KEY=test-only \
+  OPENAI_BASE_URL=http://127.0.0.1:4011/v1 npm start
 ```
 
 Then, in another terminal with `TEST_DATABASE_URL` set to the same disposable database:
@@ -191,10 +211,12 @@ CSRF-validated logout, simultaneous generation, persistence, cache expiry, user 
 stale fallback, friendly errors, and recovery. They seed sessions directly and therefore
 do not verify Google's consent/callback flow.
 
-**Live service status:** the configured Google flow reaches the account chooser; consent,
-callback, and first login remain pending account selection. The real provider returned
-`429 / credit_balance_exhausted`; the app returned its friendly 503 response. Successful
-live generation needs API credit. These are verification gaps, not claimed successes.
+**Live service status:** Google consent/callback, first-time onboarding, saving a movie,
+logout, signed-out route protection, and returning-user dashboard were verified in the
+browser. Gemini generated a real fact, which was saved in Postgres and reused on refresh.
+The local demo uses Gemini. The OpenAI live request returned `429 / credit_balance_exhausted`;
+successful OpenAI generation remains unverified. Its success and failure paths pass automated
+checks with mocked responses and the local HTTP provider fixture.
 
 The production dependency audit is clean. The full audit reports a moderate `minimatch`
 issue through development lint dependencies; the automatic fix did not resolve it. No

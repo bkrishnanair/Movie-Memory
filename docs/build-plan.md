@@ -33,7 +33,7 @@ movie search, ratings, recommendations, inline editing, Redis, or a separate API
 ## Second commit
 
 Message: `Add Google sign-in and movie onboarding`.
-Implementation and app-side checks are complete. Real Google login remains a final manual check.
+Implementation, app-side checks, and real Google login are complete.
 
 - [x] Google OAuth route handlers with database sessions and a typed session user ID.
 - [x] Sign-in/logout controls, pending states, and friendly errors.
@@ -46,7 +46,7 @@ Implementation and app-side checks are complete. Real Google login remains a fin
 - [x] Pass 31 unit tests, TypeScript checks, and production build.
 - [x] Verify real database sessions, route protection, session expiry, ownership, and logout
   through local HTTP requests using `scripts/check-auth.mjs`.
-- [ ] Verify the actual Google consent and callback flow after OAuth credentials are configured.
+- [x] Verify the actual Google consent and callback flow with the selected account.
 
 The remaining milestones are recorded below.
 
@@ -127,9 +127,22 @@ Message: `Finish verification and submission documentation`.
 - Resolved the fact-loading effect lint issue and the PostCSS export warning.
 - README contains setup, architecture, limits, tradeoffs, and tool-use disclosure.
 - Added an editable submission summary and a one-page PDF.
-- Google sign-in reaches the account chooser; completing consent/callback awaits account selection.
-- The real provider returned `credit_balance_exhausted`; the application returned a friendly
-  error. Successful live generation awaits API credit.
+- Google consent/callback, onboarding, movie persistence, logout, route protection, and return
+  to the dashboard were verified in the browser.
+- The real OpenAI provider returned `credit_balance_exhausted`; successful live OpenAI
+  generation remains unverified. The app returned a friendly error.
 
 All five planned implementation/documentation milestones are represented in local Git.
 Only the first milestone has been pushed. Do not describe pending live checks as passed.
+
+## Additional provider change
+
+Message: `Add optional Gemini fact generation`.
+
+- Added explicit `FACT_PROVIDER` selection; OpenAI remains the repository default.
+- Configured Gemini locally at the user's request, without automatic fallback to OpenAI.
+- Reused the installed SDK with Google's compatible endpoint and a separate server-side key.
+- 68 tests, lint, TypeScript, and production build pass.
+- Real Gemini generation, database persistence, and cache reuse passed.
+- Updated setup and submission notes to distinguish the Gemini demo from the required
+  OpenAI integration. All additional commits remain local.

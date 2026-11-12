@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({ getDb: vi.fn() }));
-vi.mock("@/lib/openai", () => ({ generateMovieFact: vi.fn() }));
+vi.mock("@/lib/movie-fact-provider", () => ({ generateMovieFact: vi.fn() }));
 
 import { getDb } from "@/lib/db";
-import { generateMovieFact } from "@/lib/openai";
+import { generateMovieFact } from "@/lib/movie-fact-provider";
 import { getFactForUser } from "./facts";
 
 describe("movie fact cache", () => {

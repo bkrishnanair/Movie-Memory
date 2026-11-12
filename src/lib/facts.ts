@@ -1,6 +1,6 @@
 import "server-only";
 import { getDb } from "@/lib/db";
-import { generateMovieFact } from "@/lib/openai";
+import { generateMovieFact } from "@/lib/movie-fact-provider";
 import type { FactResult } from "@/lib/fact-types";
 
 const CACHE_MS = 60_000;
